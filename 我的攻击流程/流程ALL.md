@@ -4,8 +4,8 @@
 
   **WAF识别**
 
- `wafw00f`​s
-1
+ `wafw00f`​
+
 ```
 wafw00f https://baidu.com
 ```
