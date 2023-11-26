@@ -39,10 +39,9 @@ def send_notification(commit_info, webhook_url):
         max_length = 1800
         chunks = [commit_info[i:i + max_length] for i in range(0, len(commit_info), max_length)]
 
-        # 只处理第一块信息
-        if chunks:
-            # 只包含 "GitHub 仓库更新:" 的第一块
-            message_content = f"GitHub 仓库更新:\n```diff\n{chunks[0]}\n```"
+        for chunk in chunks:
+            # 将提交信息作为消息内容
+            message_content = f"GitHub 仓库更新:\n```diff\n{chunk}\n```"
 
             # 设置消息内容
             webhook.content = message_content
