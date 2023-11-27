@@ -38,14 +38,22 @@ def send_notification(commit_info, webhook_url, retries=0):
         max_length = 1800
         chunks = [commit_info[i:i + max_length] for i in range(0, len(commit_info), max_length)]
 
+        first_chunk = True  # 添加标志来跟踪是否是第一个 chunk
+
         for chunk in chunks:
-            message_content = f"GitHub 仓库更新:\n```diff\n{chunk}\n```"
+            if first_chunk:
+                # 只在第一个 chunk 中添加 "GitHub 仓库更新:" 这一行
+                message_content = f"GitHub 仓库更新:\n```diff\n{chunk}\n```"
+                first_chunk = False
+            else:
+                message_content = f"```diff\n{chunk}\n```"
+
             webhook.content = message_content
             webhook.execute()
 
         logging.info("成功发送 Discord 通知。")
     except Exception as e:
-        logging.exception("发送 Discord 通知时发生错误")
+        logging.error(f"发送 Discord 通知时发生错误: {e}")
 
         if retries < MAX_RETRIES:
             logging.info(f"等待 {RETRY_INTERVAL} 秒后进行重试...")
@@ -57,11 +65,23 @@ def send_notification(commit_info, webhook_url, retries=0):
 def update_and_notify():
     try:
         logging.info("更新并通知中...")
-        git_pull(REPO_PATH)
-        commit_info = get_git_updates(REPO_PATH)
+        retries = 0
+        while retries < MAX_RETRIES:
+            try:
+                git_pull(REPO_PATH)
+                commit_info = get_git_updates(REPO_PATH)
+                if commit_info:
+                    send_notification(commit_info, DISCORD_WEBHOOK_URL)
+                break  # 如果成功获取代码并发送通知，跳出循环
+            except Exception as e:
+                logging.exception(f"发生错误: {e}")
 
-        if commit_info:
-            send_notification(commit_info, DISCORD_WEBHOOK_URL)
+                retries += 1
+                if retries < MAX_RETRIES:
+                    logging.info(f"等待 {RETRY_INTERVAL} 秒后进行重试...")
+                    time.sleep(RETRY_INTERVAL)
+                else:
+                    logging.error("达到最大重试次数，放弃重试。")
 
     except Exception as e:
         logging.exception(f"发生错误: {e}")
@@ -75,3 +95,4 @@ schedule.every(30).minutes.do(update_and_notify)
 while True:
     schedule.run_pending()
     time.sleep(1)
+
